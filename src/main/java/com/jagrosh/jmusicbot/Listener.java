@@ -74,7 +74,7 @@ public class Listener extends ListenerAdapter
                 {
                     String currentVersion = OtherUtil.getCurrentVersion();
                     String latestVersion = OtherUtil.getLatestVersion();
-                    if(latestVersion!=null && !currentVersion.equalsIgnoreCase(latestVersion))
+                    if(latestVersion!=null && !currentVersion.equals("Snapshot") && !currentVersion.equalsIgnoreCase(latestVersion))
                     {
                         String msg = String.format(OtherUtil.NEW_VERSION_AVAILABLE, currentVersion, latestVersion);
                         owner.openPrivateChannel().queue(pc -> pc.sendMessage(msg).queue());
@@ -105,13 +105,13 @@ public class Listener extends ListenerAdapter
     // make sure people aren't adding clones to dbots
     private void credit(JDA jda)
     {
-        Guild dbots = jda.getGuildById(110373943822540800L);
+        /*Guild dbots = jda.getGuildById(110373943822540800L);
         if(dbots==null)
             return;
         if(bot.getConfig().getDBots())
             return;
         jda.getTextChannelById(119222314964353025L)
                 .sendMessage("This account is running JMusicBot. Please do not list bot clones on this server, <@"+bot.getConfig().getOwnerId()+">.").complete();
-        dbots.leave().queue();
+        dbots.leave().queue();*/
     }
 }
