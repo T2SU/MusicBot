@@ -30,13 +30,14 @@ import com.jagrosh.jmusicbot.queue.FairQueue;
 import com.jagrosh.jmusicbot.settings.Settings;
 import com.jagrosh.jmusicbot.utils.FormatUtil;
 import com.sedmelluq.discord.lavaplayer.source.youtube.YoutubeAudioTrack;
-import net.dv8tion.jda.core.EmbedBuilder;
-import net.dv8tion.jda.core.JDA;
-import net.dv8tion.jda.core.MessageBuilder;
-import net.dv8tion.jda.core.audio.AudioSendHandler;
-import net.dv8tion.jda.core.entities.Guild;
-import net.dv8tion.jda.core.entities.Message;
-import net.dv8tion.jda.core.entities.User;
+import java.nio.ByteBuffer;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.MessageBuilder;
+import net.dv8tion.jda.api.audio.AudioSendHandler;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
 
 /**
  *
@@ -114,11 +115,12 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         return audioPlayer;
     }
     
-    public long getRequester()
+    public RequestMetadata getRequestMetadata()
     {
-        if(audioPlayer.getPlayingTrack()==null || audioPlayer.getPlayingTrack().getUserData(Long.class)==null)
-            return 0;
-        return audioPlayer.getPlayingTrack().getUserData(Long.class);
+        if(audioPlayer.getPlayingTrack() == null)
+            return RequestMetadata.EMPTY;
+        RequestMetadata rm = audioPlayer.getPlayingTrack().getUserData(RequestMetadata.class);
+        return rm == null ? RequestMetadata.EMPTY : rm;
     }
     
     public boolean playFromDefault()
@@ -156,7 +158,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         // if the track ended normally, and we're in repeat mode, re-add it to the queue
         if(endReason==AudioTrackEndReason.FINISHED && manager.getBot().getSettingsManager().getSettings(guildId).getRepeatMode())
         {
-            queue.add(new QueuedTrack(track.makeClone(), track.getUserData(Long.class)==null ? 0L : track.getUserData(Long.class)));
+            queue.add(new QueuedTrack(track.makeClone(), track.getUserData(RequestMetadata.class)));
         }
         
         if(queue.isEmpty())
@@ -197,13 +199,14 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
             mb.append(FormatUtil.filter(manager.getBot().getConfig().getSuccess()+" **Now Playing in "+guild.getSelfMember().getVoiceState().getChannel().getName()+"...**"));
             EmbedBuilder eb = new EmbedBuilder();
             eb.setColor(guild.getSelfMember().getColor());
-            if(getRequester() != 0)
+            RequestMetadata rm = getRequestMetadata();
+            if(rm.getOwner() != 0L)
             {
-                User u = guild.getJDA().getUserById(getRequester());
+                User u = guild.getJDA().getUserById(rm.user.id);
                 if(u==null)
-                    eb.setAuthor("Unknown (ID:"+getRequester()+")", null, null);
+                    eb.setAuthor(rm.user.username + "#" + rm.user.discrim, null, rm.user.avatar);
                 else
-                    eb.setAuthor(u.getName()+"#"+u.getDiscriminator(), null, u.getEffectiveAvatarUrl());
+                    eb.setAuthor(u.getName() + "#" + u.getDiscriminator(), null, u.getEffectiveAvatarUrl());
             }
 
             try 
@@ -250,7 +253,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     {
         if(isMusicPlaying(jda))
         {
-            long userid = getRequester();
+            long userid = getRequestMetadata().getOwner();
             AudioTrack track = audioPlayer.getPlayingTrack();
             String title = track.getInfo().title;
             if(title==null || title.equals("Unknown Title"))
@@ -264,7 +267,7 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
     }
     
     // Audio Send Handler methods
-    @Override
+    /*@Override
     public boolean canProvide() 
     {
         if (lastFrame == null)
@@ -283,6 +286,19 @@ public class AudioHandler extends AudioEventAdapter implements AudioSendHandler
         lastFrame = null;
 
         return data;
+    }*/
+    
+    @Override
+    public boolean canProvide() 
+    {
+        lastFrame = audioPlayer.provide();
+        return lastFrame != null;
+    }
+
+    @Override
+    public ByteBuffer provide20MsAudio() 
+    {
+        return ByteBuffer.wrap(lastFrame.getData());
     }
 
     @Override
